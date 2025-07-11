@@ -3,6 +3,8 @@
 
 string STAFF_CSV = "staff.csv";
 string CUSTOMERS_CSV = "customers.csv";
+string QUESTIONS_CSV = "questions.csv";
+
 bool LOGGED_IN = true;
 
 Main();
@@ -55,7 +57,7 @@ void MainMenu() {
 
         for(int i = minimum_option_index; i < menu_options.Length; i++) {
             if(!LOGGED_IN && i != 0) ColourGray();
-            Console.WriteLine($"{(selected_option_index == i ? "> " : "")}{menu_options[i]}");
+            Console.WriteLine($"{(selected_option_index == i ? ">" : " ")} {menu_options[i]}");
             ColourWhite();
         }
 
@@ -80,6 +82,7 @@ void ShowMenu(MenuOption option) {
             break;
         case MenuOption.QUIZ:
             if(!LOGGED_IN) break;
+            Quiz();
             break;
         case MenuOption.LAP_TIME:
             if(!LOGGED_IN) break;
@@ -140,7 +143,6 @@ void NewCustomer() {
         return;
     }
 
-    // Sanitise Here
     Notify("Created New Customer.");
 
     string first_name_sanitised = new string(first_name.ToArray().Where(x => char.IsAsciiLetterOrDigit(x)).ToArray());
@@ -149,6 +151,62 @@ void NewCustomer() {
     string gender_sanitised = new string(gender.ToArray().Where(x => char.IsAsciiLetterOrDigit(x)).ToArray());
 
     AppendCsv(CUSTOMERS_CSV, $"{first_name_sanitised},{surname_sanitised},{DOB_sanitised},{gender_sanitised}");
+}
+
+int PickOption(string prompt, string[] options)  {
+    int idx = 0;
+    while(true) {
+        Console.Clear();
+
+        ColourBlue();
+        Console.WriteLine(prompt);
+        Console.WriteLine();
+        ColourWhite();
+
+        if(idx < 0) idx = options.Length - 1;
+        if(idx >= options.Length) idx = 0;
+
+        for(int i = 0; i < options.Length; i++) {
+            ColourGreen();
+            Console.Write(idx == i ? ">" : " ");
+            ColourWhite();
+            Console.WriteLine($" {options[i]}");
+        }
+
+        ConsoleKeyInfo key_info = Console.ReadKey();
+        if(key_info.Key == ConsoleKey.DownArrow || key_info.Key == ConsoleKey.J) idx++;
+        if(key_info.Key == ConsoleKey.UpArrow || key_info.Key == ConsoleKey.K) idx--;
+        if(key_info.Key == ConsoleKey.UpArrow || key_info.Key == ConsoleKey.L) return idx;
+    }
+}
+
+void Quiz() {
+    // Pick Customer
+    string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
+
+    string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
+            .Select(i => $"{customer_details[i,0]} {customer_details[i,1]}").ToArray();
+
+    int selected_customer_index = PickOption("Please Enter The Customer To Quiz..", customer_details_flat);
+
+    string[,] quiz_details = ReadCsv(QUESTIONS_CSV);
+
+    int score = 0;
+
+    int[] answers = new int[2];
+
+    for(int i = 0; i < quiz_details.GetLength(0); i++) {
+        string[] quiz_questions = [quiz_details[i,1], quiz_details[i,2], quiz_details[i,3]];
+        int question_answer_index = PickOption($"Question: {quiz_details[i,0]}", quiz_questions);
+
+        if(question_answer_index == int.Parse(quiz_details[i,4])) score++;
+
+        answers[i] = question_answer_index;
+    }
+
+    // Store in CSV
+
+    Notify($"Quiz Completed. You scored {score} out of {quiz_details.GetLength(0)}");
 }
 
 ReadOnlySpan<char> Prompt(string prompt) {
