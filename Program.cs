@@ -5,12 +5,15 @@ string STAFF_CSV = "staff.csv";
 string CUSTOMERS_CSV = "customers.csv";
 string QUESTIONS_CSV = "questions.csv";
 
-bool LOGGED_IN = true;
+Random rng = new Random();
 
 Main();
 
 void Main() {
-    MainMenu();
+    // Login();
+    while(true) {
+        MainMenu();
+    }
 }
 
 void Login() {
@@ -22,7 +25,6 @@ void Login() {
 
     for(int i = 0; i < staff_details.GetLength(0); i++) {
         if(staff_details[i, 0] == username && staff_details[i, 1] == password) {
-            LOGGED_IN = true;
             return;
         }
     }
@@ -34,61 +36,26 @@ void Login() {
 }
 
 void MainMenu() {
-    int minimum_option_index = LOGGED_IN ? 1 : 0;
-    int selected_option_index = minimum_option_index;
-    string[] menu_options = { "Login", "Record Customer Details", "Take Quiz", "Lap Times", "Report" };
+    string banner = MainMenuBanner();
 
-    // Login
-    // Options ( Logged In )
-    // Record Customer Details ( Logged In )
-    // Quiz ( Logged In )
-    // Reaction Test ( Logged In )
-    // Allowed Category ( Logged In )
+    string[] menu_options = { "Record Customer Details", "Take Quiz", "Lap Times", "Report" };
 
-    while(true) {
-        if(LOGGED_IN) minimum_option_index = 1;
+    int selected_menu_option = PickOption(banner, menu_options);
 
-        Console.Clear();
-        Banner("Main Menu");
-        Console.WriteLine();
-
-        if(selected_option_index < minimum_option_index) selected_option_index = menu_options.Length - 1;
-        if(selected_option_index >= menu_options.Length) selected_option_index = 0;
-
-        for(int i = minimum_option_index; i < menu_options.Length; i++) {
-            if(!LOGGED_IN && i != 0) ColourGray();
-            Console.WriteLine($"{(selected_option_index == i ? ">" : " ")} {menu_options[i]}");
-            ColourWhite();
-        }
-
-        ConsoleKeyInfo key = Console.ReadKey();
-        if(key.Key == ConsoleKey.J) selected_option_index++;
-        if(key.Key == ConsoleKey.K) selected_option_index--;
-
-        if(key.Key == ConsoleKey.L) {
-            ShowMenu((MenuOption)selected_option_index);
-        }
-    }
+    ShowMenu((MenuOption)selected_menu_option);
 }
 
 void ShowMenu(MenuOption option) {
     switch(option) {
-        case MenuOption.LOGIN:
-            Login();
-            break;
         case MenuOption.RECORD_DETAILS:
-            if(!LOGGED_IN) break;
             NewCustomer();
             break;
         case MenuOption.QUIZ:
-            if(!LOGGED_IN) break;
             Quiz();
             break;
         case MenuOption.LAP_TIME:
-            if(!LOGGED_IN) break;
             break;
         case MenuOption.REPORTS:
-            if(!LOGGED_IN) break;
             break;
     }
 }
@@ -143,6 +110,7 @@ void NewCustomer() {
         return;
     }
 
+    Console.Clear();
     Notify("Created New Customer.");
 
     string first_name_sanitised = new string(first_name.ToArray().Where(x => char.IsAsciiLetterOrDigit(x)).ToArray());
@@ -150,7 +118,15 @@ void NewCustomer() {
     string DOB_sanitised = new string(DOB.ToArray().Where(x => char.IsAsciiLetterOrDigit(x) || x == '/').ToArray());
     string gender_sanitised = new string(gender.ToArray().Where(x => char.IsAsciiLetterOrDigit(x)).ToArray());
 
-    AppendCsv(CUSTOMERS_CSV, $"{first_name_sanitised},{surname_sanitised},{DOB_sanitised},{gender_sanitised}");
+    string number = rng.Next().ToString();
+    while(true) {
+        if(number.Length > 3) break;
+        number = rng.Next().ToString();
+    }
+
+    string username = $"{first_name_sanitised[0]}{surname_sanitised}{number[..3].ToString()}";
+
+    AppendCsv(CUSTOMERS_CSV, $"{username},{first_name_sanitised},{surname_sanitised},{DOB_sanitised},{gender_sanitised}");
 }
 
 int PickOption(string prompt, string[] options)  {
@@ -176,18 +152,19 @@ int PickOption(string prompt, string[] options)  {
         ConsoleKeyInfo key_info = Console.ReadKey();
         if(key_info.Key == ConsoleKey.DownArrow || key_info.Key == ConsoleKey.J) idx++;
         if(key_info.Key == ConsoleKey.UpArrow || key_info.Key == ConsoleKey.K) idx--;
-        if(key_info.Key == ConsoleKey.UpArrow || key_info.Key == ConsoleKey.L) return idx;
+        if(key_info.Key == ConsoleKey.Enter || key_info.Key == ConsoleKey.L) return idx;
     }
 }
 
 void Quiz() {
-    // Pick Customer
+    string banner = QuizBanner();
+
     string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
             .Select(i => $"{customer_details[i,0]} {customer_details[i,1]}").ToArray();
 
-    int selected_customer_index = PickOption("Please Enter The Customer To Quiz..", customer_details_flat);
+    int selected_customer_index = PickOption(banner, customer_details_flat);
 
     string[,] quiz_details = ReadCsv(QUESTIONS_CSV);
 
@@ -205,7 +182,11 @@ void Quiz() {
     }
 
     // Store in CSV
+    Console.WriteLine();
 
+    AppendCsv("quiz_results.txt", $"{customer_details[selected_customer_index, 0]},{score}");
+
+    Console.Clear();
     Notify($"Quiz Completed. You scored {score} out of {quiz_details.GetLength(0)}");
 }
 
@@ -227,17 +208,58 @@ void ColourBlue() => Console.ForegroundColor = ConsoleColor.Blue;
 void ColourWhite() => Console.ForegroundColor = ConsoleColor.White;
 void ColourGray() => Console.ForegroundColor = ConsoleColor.Gray;
 
-void Banner(string message) {
-    Console.WriteLine("---------------------");
-    Console.WriteLine($"{message}");
-    Console.WriteLine("---------------------");
+string MainMenuBanner() {
+    string[] lines = {
+        @" __  __       _         __  __",
+        @"|  \/  | __ _(_)_ __   |  \/  | ___ _ __  _   _",
+        @"| |\/| |/ _` | | '_ \  | |\/| |/ _ \ '_ \| | | |",
+        @"| |  | | (_| | | | | | | |  | |  __/ | | | |_| |",
+        @"|_|  |_|\__,_|_|_| |_| |_|  |_|\___|_| |_|\__,_|"
+    };
+
+    return string.Join(Environment.NewLine, lines);
+}
+
+string QuizBanner() {
+    string[] lines = {
+        @"  ___        _",
+        @" / _ \ _   _(_)____",
+        @"| | | | | | | |_  /",
+        @"| |_| | |_| | |/ /",
+        @" \__\_\\__,_|_/___|"
+    };
+
+    return string.Join(Environment.NewLine, lines);
+}
+
+string ReactionTestBanner() {
+    string[] lines = {
+        @" ____                 _   _               _____         _",
+        @"|  _ \ ___  __ _  ___| |_(_) ___  _ __   |_   _|__  ___| |_",
+        @"| |_) / _ \/ _` |/ __| __| |/ _ \| '_ \    | |/ _ \/ __| __|",
+        @"|  _ <  __/ (_| | (__| |_| | (_) | | | |   | |  __/\__ \ |_",
+        @"|_| \_\___|\__,_|\___|\__|_|\___/|_| |_|   |_|\___||___/\__|"
+    };
+
+    return string.Join(Environment.NewLine, lines);
+}
+
+string ReportsBanner() {
+    string[] lines = {
+        @" __  __       _         __  __",
+        @"|  \/  | __ _(_)_ __   |  \/  | ___ _ __  _   _",
+        @"| |\/| |/ _` | | '_ \  | |\/| |/ _ \ '_ \| | | |",
+        @"| |  | | (_| | | | | | | |  | |  __/ | | | |_| |",
+        @"|_|  |_|\__,_|_|_| |_| |_|  |_|\___|_| |_|\__,_|"
+    };
+
+    return string.Join(Environment.NewLine, lines);
 }
 
 enum MenuOption {
-    LOGIN = 0,
-    RECORD_DETAILS = 1,
-    QUIZ = 2,
-    REACTION_TEST = 3,
-    LAP_TIME = 4,
-    REPORTS = 5
+    RECORD_DETAILS = 0,
+    QUIZ = 1,
+    REACTION_TEST = 2,
+    LAP_TIME = 3,
+    REPORTS = 4
 }
