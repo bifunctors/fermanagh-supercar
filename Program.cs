@@ -312,8 +312,6 @@ void ReportOverall() {
         // get lap times for customer
         string[][] user_lap_times = GetAllRowsForUser(lap_times, customer_details[i, 0]);
 
-        Console.WriteLine("Lap times length: " + user_lap_times.Length);
-
         double[] user_lap_times_flattened = Enumerable.Range(0, user_lap_times.Length)
             .Select(i => new double[] {
                     StringToDouble(user_lap_times[i][1]),
@@ -324,13 +322,17 @@ void ReportOverall() {
             .Select(i => i.Average())
             .ToArray();
 
-        Console.WriteLine("Lap times length flattened: " + user_lap_times.Length);
+        Console.WriteLine("Lap times length flattened: " + user_lap_times_flattened.Length);
+
+        Console.WriteLine($"User lap time: {user_lap_times_flattened[0]}");
 
         double user_lap_time_average = user_lap_times_flattened.Length == 0 ? -1 : user_lap_times_flattened.Average();
 
         customer_report_information[i, 0] = customer_details[i, 0];
         customer_report_information[i, 1] = user_lap_time_average.ToString();
     }
+
+    Console.ReadKey();
 
     Console.Clear();
 
@@ -411,7 +413,7 @@ string[][] GetAllRowsForUser(string[,] array, string username) {
         string[] row_arr = new string[array.GetLength(1)];
 
         for(int j = 0; j < array.GetLength(1); j++) {
-            row_arr[i] = array[i, j];
+            row_arr[j] = array[i, j];
         }
 
         valid_rows.Add(row_arr);
