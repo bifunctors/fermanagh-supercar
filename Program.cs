@@ -10,13 +10,12 @@ string LAP_TIME_CSV = "lap_times.csv";
 
 string TABLE_DIVIDER = " | ";
 
-
 Random rng = new Random();
 
 Main();
 
 void Main() {
-    // Login();
+    Login();
     while(true) {
         MainMenu();
     }
@@ -30,7 +29,7 @@ void Login() {
     ReadOnlySpan<char> password = Prompt("Please Enter Your Password");
 
     for(int i = 0; i < staff_details.GetLength(0); i++) {
-        if(staff_details[i, 0] == username && staff_details[i, 1] == password) {
+        if(username.Equals(staff_details[i, 0].AsSpan(), StringComparison.Ordinal) && password.Equals(staff_details[i, 1].AsSpan(), StringComparison.Ordinal)) {
             return;
         }
     }
