@@ -18,6 +18,14 @@ Clone the repository:
 git clone https://github.com/juleswhi/fermanagh-supercar.git
 ```
 
+You can run the project by navigating to the project directory and running
+the appropriate dotnet command
+
+```sh
+cd fermanagh-supercar
+dotnet run
+```
+
 ## Usage
 
 The default username and password are both `root`
