@@ -3,6 +3,7 @@
 
 string STAFF_CSV = "staff.csv";
 string CUSTOMERS_CSV = "customers.csv";
+string QUIZ_RESULTS_CSV = "quiz_results.csv";
 string QUESTIONS_CSV = "questions.csv";
 string REACTION_CSV = "reaction_time_results.csv";
 string LAP_TIME_CSV = "lap_times.csv";
@@ -194,7 +195,7 @@ void Quiz() {
     // Store in CSV
     Console.WriteLine();
 
-    AppendCsv("quiz_results.csv", $"{customer_details[selected_customer_index, 0]},{score}");
+    AppendCsv(QUIZ_RESULTS_CSV, $"{customer_details[selected_customer_index, 0]},{score}");
 
     Console.Clear();
     Notify($"Quiz Completed. You scored {score} out of {quiz_details.GetLength(0)}");
@@ -305,13 +306,14 @@ void ReportOverall() {
             .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
     string[,] lap_times = ReadCsv(LAP_TIME_CSV);
+    string[,] quiz_results = ReadCsv(QUIZ_RESULTS_CSV);
+    string[,] reaction_times = ReadCsv(REACTION_CSV);
 
-    string[,] customer_report_information = new string[customer_details.GetLength(0), 2];
+    string[,] customer_report_information = new string[customer_details.GetLength(0), 4];
 
     for(int i = 0; i < customer_details.GetLength(0); i++) {
         // get lap times for customer
         string[][] user_lap_times = GetAllRowsForUser(lap_times, customer_details[i, 0]);
-
         double[] user_lap_times_flattened = Enumerable.Range(0, user_lap_times.Length)
             .Select(i => new double[] {
                     StringToDouble(user_lap_times[i][1]),
@@ -322,25 +324,32 @@ void ReportOverall() {
             .Select(i => i.Average())
             .ToArray();
 
-        Console.WriteLine("Lap times length flattened: " + user_lap_times_flattened.Length);
-
-        Console.WriteLine($"User lap time: {user_lap_times_flattened[0]}");
-
         double user_lap_time_average = user_lap_times_flattened.Length == 0 ? -1 : user_lap_times_flattened.Average();
 
-        customer_report_information[i, 0] = customer_details[i, 0];
-        customer_report_information[i, 1] = user_lap_time_average.ToString();
-    }
+        string[][] user_quiz_results = GetAllRowsForUser(quiz_results, customer_details[i, 0]);
+        double[] quiz_results_flattened = Enumerable.Range(0, user_quiz_results.Length).Select(i => StringToDouble(user_quiz_results[i][1])).ToArray();
+        int quiz_results_average = (int)(quiz_results_flattened.Length == 0 ? -1 : quiz_results_flattened.Average());
 
-    Console.ReadKey();
+        string[][] user_reaction_times = GetAllRowsForUser(reaction_times, customer_details[i, 0]);
+        double[] user_reaction_times_flattened = Enumerable.Range(0, user_reaction_times.Length).Select(i => StringToDouble(user_reaction_times[i][1])).ToArray();
+        double user_reaction_times_average = user_reaction_times.Length == 0 ? -1 : user_reaction_times_flattened.Average();
+
+
+        customer_report_information[i, 0] = customer_details[i, 0];
+        customer_report_information[i, 1] = user_lap_time_average == -1 ? "N/A" : Double.Round(user_lap_time_average, 1).ToString() + "s";
+        customer_report_information[i, 2] = quiz_results_average == -1 ? "N/A" : quiz_results_average.ToString();
+        customer_report_information[i, 3] = user_reaction_times_average == -1 ? "N/A" : Double.Round(user_reaction_times_average, 1).ToString() + "ms";
+    }
 
     Console.Clear();
 
-    int username_length = "Username".Length;
-    int lap_average_length = "Lap Average".Length;
+    ColourBlue();
+    Console.WriteLine(banner);
+    ColourWhite();
 
-    int[] minimum_widths = [username_length, lap_average_length];
+    string[] table_headings = ["Username", "Lap Time Avg", "Quiz Score Avg", "Reaction Time Avg"];
 
+    int[] minimum_widths = table_headings.Select(i => i.Length).ToArray();
 
     // Set widths for each column
     for(int i = 0; i < customer_report_information.GetLength(0); i++) {
@@ -350,43 +359,25 @@ void ReportOverall() {
         }
     }
 
-    int total_width = minimum_widths.Sum() + (TABLE_DIVIDER.Length * minimum_widths.Length);
+    int total_width = minimum_widths.Sum() + (TABLE_DIVIDER.Length * minimum_widths.Length) + "|".Length;
 
-    for(int j = 0; j < total_width; j++) {
-        if(j == 0 || j == total_width - 1)
-            Console.Write('+');
-        else
-            Console.Write('-');
+    PrintDivider(total_width);
+
+    Console.Write("| ");
+    for(int i = 0; i < table_headings.Length; i++) {
+        Console.Write($"{table_headings[i].PadRight(minimum_widths[i])} | ");
     }
-    Console.WriteLine();
 
-    Console.WriteLine($"|{"Username".PadRight(minimum_widths[0])} | {"Lap Average".PadRight(minimum_widths[1])} |");
-
-    for(int j = 0; j < total_width; j++) {
-        if(j == 0 || j == total_width - 1)
-            Console.Write('+');
-        else
-            Console.Write('-');
-    }
-    Console.WriteLine();
+    PrintDivider(total_width);
 
     for(int i = 0; i < customer_report_information.GetLength(0); i++) {
-        Console.Write("|");
+        Console.Write("| ");
         for(int j = 0; j < customer_report_information.GetLength(1); j++) {
             string grid_info = customer_report_information[i,j];
             Console.Write($"{grid_info.PadRight(minimum_widths[j])} | ");
         }
 
-        Console.WriteLine();
-
-        for(int j = 0; j < total_width; j++) {
-            if(j == 0 || j == total_width - 1)
-                Console.Write('+');
-            else
-                Console.Write('-');
-        }
-
-        Console.WriteLine();
+        PrintDivider(total_width);
     }
 
 
@@ -402,6 +393,17 @@ double StringToDouble(string str) {
 
 int MaximumLength(string[] array) {
     return array.Max(x => x.Length);
+}
+
+void PrintDivider(int length) {
+    Console.WriteLine();
+    for(int j = 0; j < length; j++) {
+        if(j == 0 || j == length - 1)
+            Console.Write('+');
+        else
+            Console.Write('-');
+    }
+    Console.WriteLine();
 }
 
 string[][] GetAllRowsForUser(string[,] array, string username) {
@@ -436,11 +438,78 @@ void ReportSpecific() {
     string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
-            .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
+        .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
     int selected_customer_index = PickOption(banner, customer_details_flat);
 
+    // Average Lap Time
+    // Quiz Score
+    // Reaction Test
+
+    string[,] lap_times = ReadCsv(LAP_TIME_CSV);
+    string[,] quiz_results = ReadCsv(QUIZ_RESULTS_CSV);
+    string[,] reaction_times = ReadCsv(REACTION_CSV);
+
+    string[,] customer_report_information = new string[3, 2];
+
+    string[][] user_lap_times = GetAllRowsForUser(lap_times, customer_details[selected_customer_index, 0]);
+    double[] user_lap_times_flattened = Enumerable.Range(0, user_lap_times.Length)
+        .Select(i => new double[] {
+                StringToDouble(user_lap_times[i][1]),
+                StringToDouble(user_lap_times[i][2]),
+                StringToDouble(user_lap_times[i][3]),
+                StringToDouble(user_lap_times[i][4]),
+                StringToDouble(user_lap_times[i][5])})
+        .Select(i => i.Average())
+        .ToArray();
+
+    double user_lap_time_average = user_lap_times_flattened.Length == 0 ? -1 : user_lap_times_flattened.Average();
+
+    string[][] user_quiz_results = GetAllRowsForUser(quiz_results, customer_details[selected_customer_index, 0]);
+    double[] quiz_results_flattened = Enumerable.Range(0, user_quiz_results.Length).Select(i => StringToDouble(user_quiz_results[i][1])).ToArray();
+    int quiz_results_average = (int)(quiz_results_flattened.Length == 0 ? -1 : quiz_results_flattened.Average());
+
+    string[][] user_reaction_times = GetAllRowsForUser(reaction_times, customer_details[selected_customer_index, 0]);
+    double[] user_reaction_times_flattened = Enumerable.Range(0, user_reaction_times.Length).Select(i => StringToDouble(user_reaction_times[i][1])).ToArray();
+    double user_reaction_times_average = user_reaction_times.Length == 0 ? -1 : user_reaction_times_flattened.Average();
+
+    string[] row_titles = ["Lap Time Avg", "Quiz Results Avg", "Reaction Time Avg"];
+    int[] row_titles_lengths = row_titles.Select(i => i.Length).ToArray();
+    int longest_row_title = row_titles_lengths.Max();
+
+    customer_report_information[0, 0] = row_titles[0];
+    customer_report_information[0, 1] = user_lap_time_average == -1 ? "N/A" : Double.Round(user_lap_time_average, 1).ToString() + "s";
+    customer_report_information[1, 0] = row_titles[1];
+    customer_report_information[1, 1] = quiz_results_average == -1 ? "N/A" : quiz_results_average.ToString();
+    customer_report_information[2, 0] = row_titles[2];
+    customer_report_information[2, 1] = user_reaction_times_average == -1 ? "N/A" : Double.Round(user_reaction_times_average, 1).ToString() + "ms";
+
+
     Console.Clear();
+
+    ColourBlue();
+    Console.WriteLine(banner);
+
+    Console.WriteLine();
+
+    Console.WriteLine($"{customer_details[selected_customer_index, 0]}, {customer_details[selected_customer_index, 1]} {customer_details[selected_customer_index, 2]}");
+
+    ColourWhite();
+
+
+    int max_length = (longest_row_title * 2) + (TABLE_DIVIDER.Length * 2)+ "|".Length;
+
+    PrintDivider(max_length);
+
+    for(int i = 0; i < customer_report_information.GetLength(0); i++) {
+        Console.Write($"| {customer_report_information[i, 0].PadRight(longest_row_title)} | {customer_report_information[i, 1].PadRight(longest_row_title)} |");
+        PrintDivider(max_length);
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("Press any key to return to the main menu");
+    Console.ReadKey(false);
+
 }
 
 ReadOnlySpan<char> Prompt(string prompt) {
