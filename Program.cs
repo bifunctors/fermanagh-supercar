@@ -1,28 +1,60 @@
 ﻿#pragma warning disable CS8321
 #pragma warning disable CS0219
 
-string STAFF_CSV = "staff.csv";
-string CUSTOMERS_CSV = "customers.csv";
-string QUIZ_RESULTS_CSV = "quiz_results.csv";
-string QUESTIONS_CSV = "questions.csv";
-string REACTION_CSV = "reaction_time_results.csv";
-string LAP_TIME_CSV = "lap_times.csv";
+string[] FILE_NAMES = [
+    "staff.csv",
+    "customers.csv",
+    "quiz_results.csv",
+    "questions.csv",
+    "reaction_time_results.csv",
+    "lap_times.csv"
+];
 
+(string question, string[] answers, int correct_answer)[] QUESTIONS = [
+    ("What should you do when approaching a turn?",
+     ["Slow Down", "Speed Up", "Maintain Speed"],
+     1),
+    ("When should you shift up a gear?",
+     ["When there are lots of revs", "When there are a few revs", "When there are very few revs"],
+     2)
+];
+
+int INVALID_RESULT = -1;
 string TABLE_DIVIDER = " | ";
+(string, string) DEFAULT_LOGIN_DETAILS = ("root", "root");
 
 Random rng = new Random();
 
 Main();
 
 void Main() {
+    ValidateFiles();
     Login();
     while(true) {
         MainMenu();
     }
 }
 
+void ValidateFiles() {
+    foreach(var file in FILE_NAMES) {
+        if(File.Exists(file)) continue;
+        Console.WriteLine(file);
+        var fs = File.Create(file);
+
+        string text = file switch {
+            "staff.csv" => $"{DEFAULT_LOGIN_DETAILS.Item1},{DEFAULT_LOGIN_DETAILS.Item2}",
+            "questions.csv" => QUESTIONS.Select(x => $"{x.question},{(x.answers.Aggregate((x,y) => $"{x},{y}"))},{x.correct_answer}").Aggregate((x, y) => $"{x}{Environment.NewLine}{y}"),
+            _ => ""
+        };
+
+        fs.Write(System.Text.Encoding.ASCII.GetBytes(text));
+
+        fs.Close();
+    }
+}
+
 void Login() {
-    string[,] staff_details = ReadCsv(STAFF_CSV);
+    string[,] staff_details = ReadCsv(FILE_NAMES[(int)FilePaths.STAFF]);
 
     Console.Clear();
     ReadOnlySpan<char> username = Prompt("Please Enter Your Username");
@@ -72,6 +104,8 @@ void ShowMenu(MenuOption option) {
 
 string[,] ReadCsv(string path) {
     string[] file_lines = File.ReadAllLines(path);
+
+    if(file_lines.Length == 0) return new string[0,0];
 
     int cols = file_lines[0].Split(',').Length;
 
@@ -136,10 +170,14 @@ void NewCustomer() {
 
     string username = $"{first_name_sanitised[0]}{surname_sanitised}{number[..3].ToString()}";
 
-    AppendCsv(CUSTOMERS_CSV, $"{username},{first_name_sanitised},{surname_sanitised},{DOB_sanitised},{gender_sanitised},Learner");
+    AppendCsv(FILE_NAMES[(int)FilePaths.CUSTOMERS], $"{username},{first_name_sanitised},{surname_sanitised},{DOB_sanitised},{gender_sanitised},Learner");
 }
 
 int PickOption(string prompt, string[] options)  {
+    if(options.Length == 0) {
+        return -1;
+    }
+
     int idx = 0;
     while(true) {
         Console.Clear();
@@ -169,14 +207,20 @@ int PickOption(string prompt, string[] options)  {
 void Quiz() {
     string banner = QuizBanner();
 
-    string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
+    string[,] customer_details = ReadCsv(FILE_NAMES[(int)FilePaths.CUSTOMERS]);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
             .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
     int selected_customer_index = PickOption(banner, customer_details_flat);
 
-    string[,] quiz_details = ReadCsv(QUESTIONS_CSV);
+    if(selected_customer_index == INVALID_RESULT) {
+        Console.Clear();
+        Notify("No Customers Available, Please add one first");
+        return;
+    }
+
+    string[,] quiz_details = ReadCsv(FILE_NAMES[(int)FilePaths.QUESTIONS]);
 
     int score = 0;
 
@@ -194,7 +238,7 @@ void Quiz() {
     // Store in CSV
     Console.WriteLine();
 
-    AppendCsv(QUIZ_RESULTS_CSV, $"{customer_details[selected_customer_index, 0]},{score}");
+    AppendCsv(FILE_NAMES[(int)FilePaths.QUIZ_RESULTS], $"{customer_details[selected_customer_index, 0]},{score}");
 
     Console.Clear();
     Notify($"Quiz Completed. You scored {score} out of {quiz_details.GetLength(0)}");
@@ -203,12 +247,18 @@ void Quiz() {
 void ReactionTest() {
     string banner = ReactionTestBanner();
 
-    string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
+    string[,] customer_details = ReadCsv(FILE_NAMES[(int)FilePaths.CUSTOMERS]);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
             .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
     int selected_customer_index = PickOption(banner, customer_details_flat);
+
+    if(selected_customer_index == INVALID_RESULT) {
+        Console.Clear();
+        Notify("No Customers Available, Please add one first");
+        return;
+    }
 
     System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
     System.Diagnostics.Stopwatch reaction_stopwatch = new System.Diagnostics.Stopwatch();
@@ -240,7 +290,7 @@ void ReactionTest() {
 
     double elapsed_reaction_time = reaction_stopwatch.Elapsed.Milliseconds;
 
-    AppendCsv(REACTION_CSV, $"{customer_details[selected_customer_index, 0]},{elapsed_reaction_time.ToString()}");
+    AppendCsv(FILE_NAMES[(int)FilePaths.REACTION_TIME], $"{customer_details[selected_customer_index, 0]},{elapsed_reaction_time.ToString()}");
 
     Console.Clear();
     Notify($"You took {elapsed_reaction_time} ms to click space.");
@@ -249,12 +299,19 @@ void ReactionTest() {
 void LapTime() {
     string banner = LapTimeBanner();
 
-    string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
+    string[,] customer_details = ReadCsv(FILE_NAMES[(int)FilePaths.CUSTOMERS]);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
             .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
     int selected_customer_index = PickOption(banner, customer_details_flat);
+
+    if(selected_customer_index == INVALID_RESULT) {
+        Console.Clear();
+        Notify("No Customers Available, Please add one first");
+        return;
+    }
+
 
     System.Text.StringBuilder lap_time_string_builder = new();
 
@@ -272,7 +329,7 @@ void LapTime() {
         lap_time_string_builder.Append(lap_time.ToString());
     }
 
-    AppendCsv(LAP_TIME_CSV, $"{customer_details[selected_customer_index, 0]}{lap_time_string_builder.ToString()}");
+    AppendCsv(FILE_NAMES[(int)FilePaths.LAP_TIME], $"{customer_details[selected_customer_index, 0]}{lap_time_string_builder.ToString()}");
 
     Notify("All lap times have been entered.");
 }
@@ -299,14 +356,14 @@ void Report() {
 void ReportOverall() {
     string banner = ReportsBanner();
 
-    string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
+    string[,] customer_details = ReadCsv(FILE_NAMES[(int)FilePaths.CUSTOMERS]);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
             .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
-    string[,] lap_times = ReadCsv(LAP_TIME_CSV);
-    string[,] quiz_results = ReadCsv(QUIZ_RESULTS_CSV);
-    string[,] reaction_times = ReadCsv(REACTION_CSV);
+    string[,] lap_times = ReadCsv(FILE_NAMES[(int)FilePaths.LAP_TIME]);
+    string[,] quiz_results = ReadCsv(FILE_NAMES[(int)FilePaths.QUIZ_RESULTS]);
+    string[,] reaction_times = ReadCsv(FILE_NAMES[(int)FilePaths.REACTION_TIME]);
 
     string[,] customer_report_information = new string[customer_details.GetLength(0), 4];
 
@@ -390,10 +447,6 @@ double StringToDouble(string str) {
     return Convert.ToDouble(str);
 }
 
-int MaximumLength(string[] array) {
-    return array.Max(x => x.Length);
-}
-
 void PrintDivider(int length) {
     Console.WriteLine();
     for(int j = 0; j < length; j++) {
@@ -434,20 +487,26 @@ double AverageLapArray(double[] lap_times) {
 void ReportSpecific() {
     string banner = ReportsBanner();
 
-    string[,] customer_details = ReadCsv(CUSTOMERS_CSV);
+    string[,] customer_details = ReadCsv(FILE_NAMES[(int)FilePaths.CUSTOMERS]);
 
     string[] customer_details_flat = Enumerable.Range(0, customer_details.GetLength(0))
         .Select(i => $"{customer_details[i,0]}, {customer_details[i,1]} {customer_details[i,2]}").ToArray();
 
     int selected_customer_index = PickOption(banner, customer_details_flat);
 
+    if(selected_customer_index == INVALID_RESULT) {
+        Console.Clear();
+        Notify("No Customers Available, Please add one first");
+        return;
+    }
+
     // Average Lap Time
     // Quiz Score
     // Reaction Test
 
-    string[,] lap_times = ReadCsv(LAP_TIME_CSV);
-    string[,] quiz_results = ReadCsv(QUIZ_RESULTS_CSV);
-    string[,] reaction_times = ReadCsv(REACTION_CSV);
+    string[,] lap_times = ReadCsv(FILE_NAMES[(int)FilePaths.LAP_TIME]);
+    string[,] quiz_results = ReadCsv(FILE_NAMES[(int)FilePaths.QUIZ_RESULTS]);
+    string[,] reaction_times = ReadCsv(FILE_NAMES[(int)FilePaths.REACTION_TIME]);
 
     string[,] customer_report_information = new string[3, 2];
 
@@ -602,4 +661,13 @@ enum MenuOption {
 enum ReportType {
     OVERALL = 0,
     SPECIFIC = 1
+}
+
+enum FilePaths {
+    STAFF = 0,
+    CUSTOMERS = 1,
+    QUIZ_RESULTS = 2,
+    QUESTIONS = 3,
+    REACTION_TIME = 4,
+    LAP_TIME = 5,
 }
